@@ -870,6 +870,25 @@ body.mo-on .qs.act .am-scan{animation-duration:4.4s}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 <style>html,body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1B2B4B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="المستجيب">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
+<script>
+/* Save the app on the phone so it works without internet next time. */
+if('serviceWorker' in navigator&&location.protocol!=='file:'){
+  addEventListener('load',()=>{
+    const first=!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('sw.js').then(r=>navigator.serviceWorker.ready).then(()=>{
+      if(first&&typeof toast==='function')toast('صار المستجيب محفوظًا في جوالك ويعمل بدون إنترنت');
+    }).catch(()=>{});
+  });
+}
+</script>
 </head>
 <body>
 
@@ -2793,7 +2812,7 @@ function renderAlt(){
           <label class="gaup"><input type="file" accept="image/*" data-plphoto="${p.id}" hidden>+ إضافة صورة حقيقية للمكان</label></section>
         <section class="gacard gaaudio"><div class="gahead">${svg(P.speak,'')}<b>${U('audio')}</b></div><button class="btn accent big gaplay" data-act="gspeak">${S.speaking?'■ '+Ut('stop'):'▶ '+Ut('listen')}</button><p class="gatext" dir="${CFG.lang==='ar'||CFG.lang==='ur'?'rtl':'ltr'}">${routeText(p,st)}</p>${CFG.lang!=='ar'?`<p class="gatext alt">${routeText(p,st,'ar')}</p>`:''}</section>
        </div>
-       <div class="gsbtns"><button class="btn accent big" data-act="lnav"><svg class="bic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>افتح الكاميرا ووجّهني</button><button class="btn primary big" data-act="toar">ملاحة بالواقع المعزز</button><button class="btn ghost big" data-act="greset">سؤال جديد</button></div>`;}
+       <div class="gsbtns"><button class="btn accent big" data-act="lnav"><svg class="bic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>افتح الكاميرا ووجّهني</button><button class="btn primary big" data-act="toar">ملاحة بالواقع المعزز</button><button class="btn ghost big" data-act="greset">سؤال جديد</button><a class="btn ghost big" href="markers.html" target="_blank" rel="noopener">ملصقات المواقع للطباعة</a></div>`;}
   } else {
     if(S.vs==='search'){ask=U('where');h='للزائر · اكتب بلغتك، أو اختر الصورة';
       const res=S.vq?search(S.site,S.vq):[];
@@ -2947,7 +2966,24 @@ render();
 .ln-done div img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 .ln-done svg{width:55%;height:55%}
 @keyframes lnpop{from{transform:scale(.4);opacity:0}}
-@media (prefers-reduced-motion:reduce){.ln-edge.on,#lnav.ok .ln-chev,.ln-done div{animation:none}.ln-edge.on{opacity:.8}#lnav.ok .ln-chev{opacity:.7}}
+.ln-scan{position:absolute;left:50%;top:40%;width:min(62vw,260px);aspect-ratio:1;transform:translate(-50%,-50%);display:none;pointer-events:none}
+#lnav.loc .ln-scan{display:block}
+#lnav.loc .ln-stage,#lnav.loc .ln-ring,#lnav.loc .ln-edge{display:none}
+.ln-scan b{position:absolute;width:42px;height:42px;border:0 solid #fff;border-radius:6px}
+.ln-scan b:nth-child(1){top:0;right:0;border-top-width:6px;border-right-width:6px}
+.ln-scan b:nth-child(2){top:0;left:0;border-top-width:6px;border-left-width:6px}
+.ln-scan b:nth-child(3){bottom:0;right:0;border-bottom-width:6px;border-right-width:6px}
+.ln-scan b:nth-child(4){bottom:0;left:0;border-bottom-width:6px;border-left-width:6px}
+.ln-scan i{position:absolute;left:8%;right:8%;top:10%;height:3px;border-radius:3px;background:#3DDC84;box-shadow:0 0 14px #3DDC84;animation:lnscan 2s ease-in-out infinite alternate}
+#lnav.found .ln-scan b{border-color:#3DDC84}
+@keyframes lnscan{to{top:88%}}
+.ln-gps{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border-radius:12px;background:#F4F6FA;font-family:var(--f-body);font-size:13.5px;color:#3A465E}
+.ln-gps:empty{display:none}
+.ln-gps .dot{flex:none;width:10px;height:10px;border-radius:50%;background:#C9D2E0}
+.ln-gps .dot.on{background:#1E9E57;box-shadow:0 0 0 4px rgba(30,158,87,.2)}
+.ln-gps .dot.wait{background:#F28C28;animation:lnpulse 1s infinite}
+.ln-from{display:block;font-size:12.5px;opacity:.85;font-family:var(--f-body)}
+@media (prefers-reduced-motion:reduce){.ln-scan i{animation:none;top:50%}.ln-edge.on,#lnav.ok .ln-chev,.ln-done div{animation:none}.ln-edge.on{opacity:.8}#lnav.ok .ln-chev{opacity:.7}}
 </style>
 <div id="lnav" hidden aria-live="polite">
   <video id="lnvid" autoplay muted playsinline></video><div class="ln-fake" hidden></div>
@@ -2961,8 +2997,10 @@ render();
     <g fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><path class="ln-chev" d="M72 74l28-24 28 24"/><path class="ln-chev" d="M72 74l28-24 28 24"/><path class="ln-chev" d="M72 74l28-24 28 24"/></g>
     <path class="ln-arrow" d="M100 8L172 92H128V192H72V92H28Z" stroke="#fff" stroke-width="6" stroke-linejoin="round"/></svg></div></div>
   <div class="ln-ring" aria-hidden="true"><i id="lnRing"></i></div>
+  <div class="ln-scan" aria-hidden="true"><b></b><b></b><b></b><b></b><i></i></div>
   <div class="ln-done"><div id="lnDone"></div></div>
   <div class="ln-card"><div class="ln-say"><span class="ln-badge"><svg id="lnBadge" viewBox="0 0 120 120"><path d="M60 10L102 58H76V110H44V58H18Z" fill="currentColor"/></svg></span><div><b id="lnTxt"></b><em class="alt" id="lnAlt"></em><small id="lnSub"></small></div></div>
+    <div class="ln-gps" id="lnGps"></div>
     <div class="ln-btns"><button data-ln="mute" id="lnMute">🔊 الصوت</button><button data-ln="skip" id="lnSkip">الخطوة التالية</button><button class="main" data-ln="close" id="lnClose">إنهاء</button></div></div>
 </div>
 <script>
@@ -2974,7 +3012,19 @@ Object.assign(UI,{
  keep:['استمر للأمام','Keep going','سیدھا چلتے رہیں','Continuez tout droit'],
  hold:['ارفع الجوال أمامك','Hold the phone up in front of you','فون اپنے سامنے سیدھا رکھیں','Tenez le téléphone devant vous'],
  liftok:['صعدت','I am up','میں اوپر پہنچ گیا','Je suis monté'],
- lnleft:['متبقٍ','left','باقی','restant']});
+ lnleft:['متبقٍ','left','باقی','restant'],
+ whereami:['أين أنت الآن؟','Where are you now?','آپ اس وقت کہاں ہیں؟','Où êtes-vous ?'],
+ scanhint:['وجّه الكاميرا على ملصق المستجيب القريب منك','Point the camera at the nearest Mustajeeb sign','کیمرہ قریب ترین المستجیب نشان کی طرف کریں','Visez le panneau Mustajeeb le plus proche'],
+ starthere:['ابدأ من هنا','Start from here','یہیں سے شروع کریں','Partir d’ici'],
+ youat:['أنت عند','You are at','آپ یہاں ہیں','Vous êtes à'],
+ from:['من','from','سے','depuis']});
+/* Real centre points, used only to tell whether GPS puts the visitor at the mosque. */
+SITES.mak.c=[21.42252,39.82621];SITES.mad.c=[24.46721,39.61119];
+const LNQR=s=>{const m=/^MSTJ\|(mak|mad)\|([a-z_]+)$/.exec(String(s||'').trim());if(!m)return null;const d=findDest(m[1],m[2]);return d?{site:m[1],p:d}:null};
+function routeFrom(p,from){if(!from)return routeFor(p);
+  const h=hashN(from+'>'+p.id),turn=h%2?'tright':'tleft',m1=40+h%9*12,m2=25+h%5*10,st=[{k:'walk',m:m1},{k:turn,m:m2}];
+  if(p.id==='lift'||p.id==='women'&&h%3===0)st.push({k:'lift',m:0});
+  st.push({k:'walk',m:15+h%4*10},{k:'arrived',m:0});return st}
 const LN=(()=>{
   const el=id=>document.getElementById(id), root=()=>el('lnav');
   let st=null, raf=0, stream=null, sensor=false, iosHead=false;
@@ -2997,18 +3047,19 @@ const LN=(()=>{
     const m=Math.hypot(a.x,a.y,a.z);fAcc=fAcc*.75+m*.25;const t=performance.now();
     if(!above&&fAcc>10.9&&t-lastStep>330){above=true;lastStep=t;if(st.ok)st.walked+=.72}
     else if(above&&fAcc<9.9)above=false}
-  function legs(p){
+  function legs(p,from){
     const out=[];let off=0;
-    routeFor(p).forEach(s=>{
+    routeFrom(p,from).forEach(s=>{
       if(s.k==='tright')off+=90;else if(s.k==='tleft')off-=90;
       out.push({k:s.k,off,m:s.m});
     });return out}
   async function open(id){
     const p=findDest(S.site,id);if(!p)return;
     stopSpeak();camStop();clearTimeout(VT);
-    st={p,legs:legs(p),i:0,walked:0,h:null,base:null,ok:false,key:'',spoken:'',keyAt:0,muted:false,done:false,motion:false,demo:false,t0:performance.now(),lastT:performance.now()};
+    st={p,legs:legs(p),i:0,phase:'locate',from:null,gps:null,gpsErr:null,scanAt:0,foundAt:0,walked:0,h:null,base:null,ok:false,key:'',spoken:'',keyAt:0,muted:false,done:false,motion:false,demo:false,t0:performance.now(),lastT:performance.now()};
     sensor=false;iosHead=false;
     const r=root();r.hidden=false;r.className='';document.body.style.overflow='hidden';
+    el('lnLeft').dataset.from='';el('lnGps').innerHTML='';
     el('lnIc').innerHTML=icon(p.i);el('lnName').textContent=PNt(p);el('lnMute').textContent='🔊 '+(['الصوت','Sound','آواز','Son'][LI()]);
     el('lnSkip').textContent=['الخطوة التالية','Next step','اگلا قدم','Étape suivante'][LI()];el('lnClose').textContent=['إنهاء','End','ختم','Terminer'][LI()];
     // Ask for sensors inside the tap (iPhone needs this), camera at the same time.
@@ -3016,17 +3067,69 @@ const LN=(()=>{
     try{if(window.DeviceOrientationEvent&&DeviceOrientationEvent.requestPermission)ask.push(DeviceOrientationEvent.requestPermission().catch(()=>'denied'))}catch(e){}
     try{if(window.DeviceMotionEvent&&DeviceMotionEvent.requestPermission)ask.push(DeviceMotionEvent.requestPermission().catch(()=>'denied'))}catch(e){}
     const cam=(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)?navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false}).catch(()=>null):Promise.resolve(null);
+    startGps();
+    const me=st, v=el('lnvid');
+    v.hidden=true;r.querySelector('.ln-fake').hidden=false;
+    cancelAnimationFrame(raf);raf=requestAnimationFrame(tick);   // draw now; camera and sensors join when ready
+    // Attach the camera when it answers; never let a pending prompt block the screen.
+    Promise.race([cam,new Promise(res=>setTimeout(()=>res('wait'),12000))]).then(s=>{
+      if(st!==me)return;
+      if(s&&s!=='wait'){stream=s;v.hidden=false;r.querySelector('.ln-fake').hidden=true;v.srcObject=s;v.play().catch(()=>{})}
+      else{me.camFail=true;toast('تعذّر فتح الكاميرا، والإرشاد مستمر بدونها');if(s==='wait')cam.then(x=>{if(x&&st===me){me.camFail=false;stream=x;v.hidden=false;r.querySelector('.ln-fake').hidden=true;v.srcObject=x;v.play().catch(()=>{})}else if(x)x.getTracks().forEach(t=>t.stop())})}
+    });
     await Promise.all(ask);
+    if(st!==me)return;
     window.addEventListener('deviceorientationabsolute',onOri);window.addEventListener('deviceorientation',onOri);window.addEventListener('devicemotion',onMot);
-    stream=await cam;
-    if(!st)return;
-    const v=el('lnvid');
-    if(stream){v.hidden=false;r.querySelector('.ln-fake').hidden=true;v.srcObject=stream;v.play().catch(()=>{})}
-    else{v.hidden=true;r.querySelector('.ln-fake').hidden=false;toast('تعذّر فتح الكاميرا، والإرشاد مستمر بدونها')}
-    setTimeout(()=>{if(st&&!sensor){st.demo=true;st.h=0;st.base=0}},1500);
-    cancelAnimationFrame(raf);raf=requestAnimationFrame(tick);
+    setTimeout(()=>{if(st===me&&!sensor){st.demo=true;if(st.h==null){st.h=0;st.base=0}}},1500);
+  }
+  /* ---- where am I: GPS works without internet; a QR sign gives the exact spot ---- */
+  let gpsId=null, det=null, cvs=null;
+  function startGps(){
+    if(!navigator.geolocation)return;
+    try{gpsId=navigator.geolocation.watchPosition(pos=>{if(st){st.gps=pos.coords;st.gpsErr=null}},err=>{if(st)st.gpsErr=err.code},{enableHighAccuracy:true,maximumAge:5000,timeout:30000})}catch(e){}
+  }
+  const distM=(a,b)=>{const r=Math.PI/180,dLa=(b[0]-a[0])*r,dLo=(b[1]-a[1])*r,x=Math.sin(dLa/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2;return 6371000*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))};
+  function gpsLine(){
+    if(!navigator.geolocation)return '';
+    const T=(a)=>a[LI()];
+    if(!st.gps){return `<span class="dot ${st.gpsErr===1?'':'wait'}"></span>${st.gpsErr===1?T(['الموقع غير مسموح. فعّله من إعدادات الجوال','Location is off. Allow it in phone settings','مقام کی اجازت نہیں','Localisation refusée']):T(['جارٍ تحديد موقعك بالأقمار الصناعية (بدون إنترنت)…','Finding you by satellite (no internet needed)…','سیٹلائٹ سے آپ کا مقام معلوم ہو رہا ہے…','Localisation par satellite (sans internet)…'])}`}
+    const acc=Math.round(st.gps.accuracy), d=distM([st.gps.latitude,st.gps.longitude],SITES[S.site].c);
+    const where=d<450?T(['أنت داخل '+SITES[S.site].t+' أو عنده','You are at '+SITES[S.site].e,'آپ '+SITES[S.site].e+' میں ہیں','Vous êtes à '+SITES[S.site].e]):T([`أنت على بعد ${num(d>=1000?Math.round(d/100)/10:Math.round(d))} ${d>=1000?'كم':'م'} من ${SITES[S.site].t}`,`${d>=1000?(d/1000).toFixed(1)+' km':Math.round(d)+' m'} from ${SITES[S.site].e}`,`${SITES[S.site].e} سے ${Math.round(d)} میٹر`,`À ${Math.round(d)} m de ${SITES[S.site].e}`]);
+    return `<span class="dot on"></span><span>📍 ${where} · ${T(['الدقة','accuracy','درستگی','précision'])} ±${num(acc)} ${Ut('m')}</span>`;
+  }
+  async function scan(){
+    const v=el('lnvid');if(!stream||!v.videoWidth)return null;
+    try{
+      if(!det&&'BarcodeDetector' in window){try{det=new BarcodeDetector({formats:['qr_code']})}catch(e){det=false}}
+      if(det){const r=await det.detect(v);return r[0]&&r[0].rawValue}
+      if(typeof jsQR!=='function')return null;
+      cvs=cvs||document.createElement('canvas');const w=480,h=Math.round(w*v.videoHeight/v.videoWidth);cvs.width=w;cvs.height=h;
+      const c=cvs.getContext('2d',{willReadFrequently:true});c.drawImage(v,0,0,w,h);const q=jsQR(c.getImageData(0,0,w,h).data,w,h,{inversionAttempts:'dontInvert'});return q&&q.data;
+    }catch(e){return null}
+  }
+  function startGo(from){
+    st.from=from||null;st.legs=legs(st.p,st.from&&st.from.id);st.i=0;st.walked=0;st.ok=false;st.key='';st.spoken='';
+    st.base=st.h;st.phase='go';el('lnGps').innerHTML='';
+    el('lnLeft').dataset.from=st.from?` · ${L('from')} ${PNt(st.from)}`:'';
+    if(st.from&&st.from.id===st.p.id){st.done=true;buzz([80,60,200]);say('arrived')}
+  }
+  function locateTick(t){
+    const r=root();
+    r.className='loc'+(st.foundAt?' found':'');
+    el('lnTxt').textContent=st.foundAt?`${L('youat')}: ${PNt(st.from)}`:L('whereami');
+    el('lnAlt').textContent=LI()?(st.foundAt?`${UI.youat[0]}: ${st.from.t}`:UI.whereami[0]):'';
+    el('lnSub').textContent=st.foundAt?'':!st.camFail?L('scanhint'):['الكاميرا غير متاحة. اضغط «ابدأ من هنا»','Camera unavailable. Tap “Start from here”','کیمرہ دستیاب نہیں','Caméra indisponible'][LI()];
+    badge(st.foundAt?'<path d="M28 62l20 20 44-46" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>':'<path d="M16 40V20a4 4 0 0 1 4-4h20M80 16h20a4 4 0 0 1 4 4v20M104 80v20a4 4 0 0 1-4 4H80M40 104H20a4 4 0 0 1-4-4V80" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round"/><rect x="40" y="40" width="40" height="40" rx="4" fill="currentColor"/>',0);
+    el('lnGps').innerHTML=gpsLine();el('lnNote').innerHTML='';
+    el('lnSkip').hidden=false;el('lnSkip').textContent=L('starthere');
+    el('lnLeft').textContent=['اختر نقطة البداية','Choose where you start','آغاز کا مقام','Point de départ'][LI()];
+    if(st.foundAt){if(t-st.foundAt>1600)startGo(st.from);return}
+    if(t-st.scanAt>280&&!st.scanning){st.scanAt=t;st.scanning=true;scan().then(txt=>{if(!st)return;st.scanning=false;const q=LNQR(txt);
+      if(q){if(q.site!==S.site){toast(['هذا الملصق في ','This sign is at ','یہ نشان ','Ce panneau est à '][LI()]+SITES[q.site].t);return}
+        st.from=q.p;st.foundAt=performance.now();buzz([60,40,60]);say('youat',PNt(q.p))}})}
   }
   function close(){
+    if(gpsId!=null){try{navigator.geolocation.clearWatch(gpsId)}catch(e){}gpsId=null}
     cancelAnimationFrame(raf);
     window.removeEventListener('deviceorientationabsolute',onOri);window.removeEventListener('deviceorientation',onOri);window.removeEventListener('devicemotion',onMot);
     if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
@@ -3046,6 +3149,7 @@ const LN=(()=>{
   const ARR='<path d="M60 10L102 58H76V110H44V58H18Z" fill="currentColor"/>';
   function tick(t){
     if(!st)return;const dt=Math.min(.2,(t-st.lastT)/1000);st.lastT=t;
+    if(st.phase==='locate'){locateTick(t);raf=requestAnimationFrame(tick);return}
     const r=root(),leg=st.legs[st.i],total=st.legs.reduce((a,x)=>a+x.m,0);
     const doneM=st.legs.slice(0,st.i).reduce((a,x)=>a+x.m,0)+Math.min(st.walked,leg?leg.m:0);
     el('lnBar').style.width=Math.round(100*(st.done?1:doneM/Math.max(1,total)))+'%';
@@ -3057,7 +3161,7 @@ const LN=(()=>{
       el('lnSkip').hidden=true;el('lnNote').innerHTML='';edge(0);return;
     }
     el('lnDone').dataset.set='';el('lnDone').innerHTML='';el('lnSkip').hidden=false;
-    el('lnLeft').textContent=`${num(Math.max(0,Math.round(total-doneM)))} ${Ut('m')} ${L('lnleft')} · ${num(Math.max(1,Math.round((total-doneM)/70)))} ${Ut('min')}`;
+    el('lnLeft').textContent=`${num(Math.max(0,Math.round(total-doneM)))} ${Ut('m')} ${L('lnleft')} · ${num(Math.max(1,Math.round((total-doneM)/70)))} ${Ut('min')}${el('lnLeft').dataset.from||''}`;
     if(leg.k==='lift'){
       r.className='ok';el('lnPlane').style.setProperty('--d','0deg');el('lnRing').style.setProperty('--d','0deg');
       setText('lift','',dirSvg('up').replace(/class="[^"]*"/,''),0);el('lnSkip').textContent='✓ '+L('liftok');edge(0);
@@ -3091,7 +3195,7 @@ const LN=(()=>{
     const a=b.dataset.ln;
     if(a==='close')close();
     else if(a==='mute'){st.muted=!st.muted;b.textContent=(st.muted?'🔇 ':'🔊 ')+(['الصوت','Sound','آواز','Son'][LI()]);if(st.muted)speechSynthesis.cancel();else{st.spoken=''}}
-    else if(a==='skip'){if(st.legs[st.i].k==='lift'){buzz(60)}next()}},true);
+    else if(a==='skip'){if(st.phase==='locate'){startGo(st.from);return}if(st.legs[st.i].k==='lift'){buzz(60)}next()}},true);
   let dragX=null;
   document.addEventListener('pointerdown',e=>{if(st&&st.demo&&e.target.closest('#lnav')&&!e.target.closest('.ln-card,.ln-top'))dragX=e.clientX});
   document.addEventListener('pointermove',e=>{if(dragX==null||!st)return;st.h=(st.h-(e.clientX-dragX)*.35+360)%360;dragX=e.clientX});
