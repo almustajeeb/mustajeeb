@@ -1,13 +1,10 @@
 // Keeps Mustajeeb on the phone so it opens without internet after the first visit.
-const VERSION = 'mustajeeb-v2';
+const VERSION = 'mustajeeb-v3';
 const CORE = [
   './',
   './index.html',
-  './markers.html',
   './manifest.webmanifest',
-  './icon.svg',
-  'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'
+  './icon.svg'
 ];
 
 self.addEventListener('install', e => {
