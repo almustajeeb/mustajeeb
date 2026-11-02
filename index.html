@@ -877,7 +877,6 @@ body.mo-on .qs.act .am-scan{animation-duration:4.4s}
 <meta name="apple-mobile-web-app-title" content="المستجيب">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
 <script>
 /* Save the app on the phone so it works without internet next time. */
 if('serviceWorker' in navigator&&location.protocol!=='file:'){
@@ -2805,6 +2804,7 @@ function renderAlt(){
     else if(S.gs==='pick'||S.gs==='gates'){ask=q4(gq,null);h='للمنظم · الزائر يشير إلى صورة المكان';
       const list=S.gs==='gates'?GATES[S.site].map(g=>({...g,i:'pl_gate'})):placesFor(S.site);
       w=`${langChips()}<div class="grid">${list.map(x=>placeCard(x,x.sub?'gsub':'gpick')).join('')}</div><div class="navrow"><button class="card navc" data-act="${S.gs==='gates'?'gback':'gqback'}">${icon('arrowr')}<span class="lb">${U('back')}</span></button></div>`;}
+    else if(typeof lmScreen==='function'){({ask,h,w}=lmScreen(p));}
     else {const st=routeFor(p);ask=q4(gq,p);h='للزائر · الإجابة بثلاث طرق: خريطة، وصور الطريق، ومقطع صوتي بلغته';
       w=`<div class="gans">
         <section class="gacard gamap"><div class="gahead">${pinIc()}<b>${U('map')}</b></div>${mapSvg(p,st)}<a class="btn ghost" href="${gmaps(S.site,p)}" target="_blank" rel="noopener">${pinIc()}خرائط Google</a></section>
@@ -2812,7 +2812,7 @@ function renderAlt(){
           <label class="gaup"><input type="file" accept="image/*" data-plphoto="${p.id}" hidden>+ إضافة صورة حقيقية للمكان</label></section>
         <section class="gacard gaaudio"><div class="gahead">${svg(P.speak,'')}<b>${U('audio')}</b></div><button class="btn accent big gaplay" data-act="gspeak">${S.speaking?'■ '+Ut('stop'):'▶ '+Ut('listen')}</button><p class="gatext" dir="${CFG.lang==='ar'||CFG.lang==='ur'?'rtl':'ltr'}">${routeText(p,st)}</p>${CFG.lang!=='ar'?`<p class="gatext alt">${routeText(p,st,'ar')}</p>`:''}</section>
        </div>
-       <div class="gsbtns"><button class="btn accent big" data-act="lnav"><svg class="bic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>افتح الكاميرا ووجّهني</button><button class="btn primary big" data-act="toar">ملاحة بالواقع المعزز</button><button class="btn ghost big" data-act="greset">سؤال جديد</button><a class="btn ghost big" href="markers.html" target="_blank" rel="noopener">ملصقات المواقع للطباعة</a></div>`;}
+       <div class="gsbtns"><button class="btn accent big" data-act="lnav"><svg class="bic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>افتح الكاميرا ووجّهني</button><button class="btn primary big" data-act="toar">ملاحة بالواقع المعزز</button><button class="btn ghost big" data-act="greset">سؤال جديد</button></div>`;}
   } else {
     if(S.vs==='search'){ask=U('where');h='للزائر · اكتب بلغتك، أو اختر الصورة';
       const res=S.vq?search(S.site,S.vq):[];
@@ -2886,7 +2886,8 @@ function altAct(a,b,v){
   if(a==='gq'){S.gq=v;S.gs='pick';render();return true}
   if(a==='gqback'){S.gs='q';render();return true}
   if(a==='gspeak'){speakRoute();return true}
-  if(a==='gpick'){S.gp=b.dataset.id;S.gs='ans';render();return true}
+  if(typeof lmAct==='function'&&lmAct(a,b,v))return true;
+  if(a==='gpick'){S.gp=b.dataset.id;S.gs='ans';S.lmType=null;S.lmNum='';render();return true}
   if(a==='gdir'){S.gd=v;render();return true}
   if(a==='gdist'){S.gdist=S.gdist===v?null:v;render();return true}
   if(a==='gshow'){S.gs='show';render();return true}
@@ -3053,7 +3054,7 @@ const LN=(()=>{
       if(s.k==='tright')off+=90;else if(s.k==='tleft')off-=90;
       out.push({k:s.k,off,m:s.m});
     });return out}
-  async function open(id){
+  async function open(id,from){
     const p=findDest(S.site,id);if(!p)return;
     stopSpeak();camStop();clearTimeout(VT);
     st={p,legs:legs(p),i:0,phase:'locate',from:null,gps:null,gpsErr:null,scanAt:0,foundAt:0,walked:0,h:null,base:null,ok:false,key:'',spoken:'',keyAt:0,muted:false,done:false,motion:false,demo:false,t0:performance.now(),lastT:performance.now()};
@@ -3062,12 +3063,12 @@ const LN=(()=>{
     el('lnLeft').dataset.from='';el('lnGps').innerHTML='';
     el('lnIc').innerHTML=icon(p.i);el('lnName').textContent=PNt(p);el('lnMute').textContent='🔊 '+(['الصوت','Sound','آواز','Son'][LI()]);
     el('lnSkip').textContent=['الخطوة التالية','Next step','اگلا قدم','Étape suivante'][LI()];el('lnClose').textContent=['إنهاء','End','ختم','Terminer'][LI()];
+    startGo(from);   // the visitor already told us the nearest landmark, so guide right away
     // Ask for sensors inside the tap (iPhone needs this), camera at the same time.
     const ask=[];
     try{if(window.DeviceOrientationEvent&&DeviceOrientationEvent.requestPermission)ask.push(DeviceOrientationEvent.requestPermission().catch(()=>'denied'))}catch(e){}
     try{if(window.DeviceMotionEvent&&DeviceMotionEvent.requestPermission)ask.push(DeviceMotionEvent.requestPermission().catch(()=>'denied'))}catch(e){}
     const cam=(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)?navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false}).catch(()=>null):Promise.resolve(null);
-    startGps();
     const me=st, v=el('lnvid');
     v.hidden=true;r.querySelector('.ln-fake').hidden=false;
     cancelAnimationFrame(raf);raf=requestAnimationFrame(tick);   // draw now; camera and sensors join when ready
@@ -3204,6 +3205,64 @@ const LN=(()=>{
     if(e.key==='ArrowRight'){st.h=(st.h+15)%360;e.preventDefault()}if(e.key==='ArrowLeft'){st.h=(st.h+345)%360;e.preventDefault()}});
   return {open,close};
 })();
+</script>
+<style>
+/* ---------- guidance: nearest landmark, then camera ---------- */
+.lmwrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.lmq{font-family:var(--f-display);font-size:22px;font-weight:700;color:var(--head);text-align:center;text-wrap:balance}
+.lmq em{display:block;font-style:normal;font-size:15px;font-weight:500;color:var(--muted)}
+.lmtypes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.lmtypes .card{min-height:128px;font-size:18px}
+.lmtypes .card[aria-pressed="true"]{border-color:var(--orange);background:var(--orange-soft);box-shadow:0 0 0 3px var(--orange-soft)}
+.lmnum{display:flex;flex-direction:column;gap:10px;align-items:center}
+.lmdisp{font-family:var(--f-display);font-size:20px;color:var(--ink);display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;text-align:center}
+.lmdisp b{min-width:120px;padding:6px 18px;border-radius:14px;border:2px dashed var(--line);background:var(--surface);font-size:34px;color:var(--head);font-variant-numeric:tabular-nums;direction:ltr}
+.lmdisp b.on{border-style:solid;border-color:var(--orange)}
+.lmpad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:min(100%,340px);direction:ltr}
+.lmpad button{min-height:60px;border-radius:14px;border:2px solid var(--line);background:var(--surface);color:var(--ink);font-family:var(--f-display);font-size:26px;font-weight:600;cursor:pointer}
+.lmpad button:active{transform:scale(.96)}
+.lmpad button.del{font-size:22px;color:var(--muted)}
+.lmgo{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.lmgo .lmcam{min-height:72px;font-size:22px;justify-content:center}
+.lmgo .lmcam[disabled]{opacity:.45;cursor:not-allowed}
+.lmgo .lmlinks{display:flex;justify-content:center;gap:18px;flex-wrap:wrap}
+.lmgo .lmlinks button{background:none;border:0;color:var(--muted);font-family:var(--f-body);font-size:15px;text-decoration:underline;cursor:pointer;min-height:40px}
+.lmdemo{margin:0;text-align:center;font-size:12.5px;color:var(--muted)}
+@media (max-width:420px){.lmtypes .card{min-height:112px;font-size:16px}}
+</style>
+<script>
+/* After choosing where to go: pick the nearest landmark and its number, then open the camera. */
+const LMT=[{id:'wc',i:'pl_wc',n:['دورة مياه','Toilet','بیت الخلاء','Toilettes']},
+ {id:'gate',i:'pl_gate',n:['باب','Gate','دروازہ','Porte']},
+ {id:'lift',i:'pl_lift',n:['مصعد أو سلم','Elevator or escalator','لفٹ یا سیڑھی','Ascenseur ou escalator']}];
+Object.assign(UI,{
+ lmq:['ما أقرب معلم لك الآن؟','What is the nearest landmark to you?','آپ کے قریب ترین نشان کیا ہے؟','Quel repère est le plus proche de vous ?'],
+ lmn:['اكتب الرقم المكتوب عليه','Type the number written on it','اس پر لکھا نمبر لکھیں','Tapez le numéro inscrit dessus'],
+ camgo:['افتح الكاميرا ووجّهني','Open the camera and guide me','کیمرہ کھولیں اور راستہ بتائیں','Ouvrir la caméra et me guider'],
+ lmskip:['لا أعرف، ابدأ من مكاني','Not sure, start from here','معلوم نہیں، یہیں سے شروع کریں','Je ne sais pas, partir d’ici'],
+ to:['إلى','To','منزل','Vers']});
+function lmFrom(){const t=LMT.find(x=>x.id===S.lmType);if(!t||!S.lmNum)return null;const n=+S.lmNum;
+  return {id:'lm_'+t.id+'_'+n,t:t.n[0]+' '+AR(n),e:t.n[1]+' '+n,u:t.n[2]+' '+n,f:t.n[3]+' '+n}}
+function lmScreen(p){
+  const t=LMT.find(x=>x.id===S.lmType), i=LI(), num=S.lmNum||'', ready=!!(t&&num);
+  const shown=num?(CFG.lang==='ar'?AR(+num):num):'—';
+  const cam='<svg class="bic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+  const w=`<div class="lmwrap">
+    <div class="lmq">${Ut('lmq')}${i?`<em>${UI.lmq[0]}</em>`:''}</div>
+    <div class="lmtypes">${LMT.map(x=>`<button class="card" data-act="lmtype" data-v="${x.id}" aria-pressed="${S.lmType===x.id}">${icon(x.i)}<span class="lb">${x.n[i]}</span></button>`).join('')}</div>
+    ${t?`<div class="lmnum"><div class="lmdisp">${Ut('lmn')}: <span>${t.n[i]}</span><b class="${num?'on':''}" aria-live="polite">${shown}</b></div>
+      <div class="lmpad">${[1,2,3,4,5,6,7,8,9].map(d=>`<button data-act="lmkey" data-v="${d}">${CFG.lang==='ar'?AR(d):d}</button>`).join('')}<button class="del" data-act="lmkey" data-v="del" aria-label="مسح">⌫</button><button data-act="lmkey" data-v="0">${CFG.lang==='ar'?AR(0):0}</button><button class="del" data-act="lmkey" data-v="clr" aria-label="مسح الكل">C</button></div></div>`:''}
+    <div class="lmgo"><button class="btn accent big lmcam" data-act="lmgo" ${ready?'':'disabled'}>${cam}${Ut('camgo')}</button>
+      <div class="lmlinks"><button data-act="lmgo" data-v="skip">${Ut('lmskip')}</button><button data-act="greset">${Ut('back')}</button></div></div>
+    <p class="lmdemo">أرقام المعالم في هذا العرض تجريبية، وتُربط بمواقعها الحقيقية عند اعتماد بيانات الحرم.</p></div>`;
+  return {ask:`${Ut('to')}: ${PN(p)}`, h:'للزائر · حدّد أقرب معلم لك، ثم افتح الكاميرا', w};
+}
+function lmAct(a,b,v){
+  if(a==='lmtype'){if(S.lmType!==v){S.lmType=v;S.lmNum=''}render();return true}
+  if(a==='lmkey'){let n=S.lmNum||'';if(v==='del')n=n.slice(0,-1);else if(v==='clr')n='';else if(n.length<4)n=(n+v).replace(/^0+(?=\d)/,'');S.lmNum=n;render();return true}
+  if(a==='lmgo'){LN.open(S.gp,v==='skip'?null:lmFrom());return true}
+  return false;
+}
 </script>
 
 </body>
