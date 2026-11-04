@@ -1,10 +1,11 @@
 // Keeps Mustajeeb on the phone so it opens without internet after the first visit.
-const VERSION = 'mustajeeb-v3';
+const VERSION = 'mustajeeb-v4';
 const CORE = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icon.svg'
+  './icon.svg',
+  './map.webp'
 ];
 
 self.addEventListener('install', e => {
