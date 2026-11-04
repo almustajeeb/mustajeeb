@@ -3028,7 +3028,7 @@ function routeFrom(p,from){if(!from)return routeFor(p);
   st.push({k:'walk',m:15+h%4*10},{k:'arrived',m:0});return st}
 const LN=(()=>{
   const el=id=>document.getElementById(id), root=()=>el('lnav');
-  let st=null, raf=0, stream=null, sensor=false, iosHead=false;
+  let st=null, raf=0, stream=null, sensor=false, iosHead=false, absEv=false;
   const wrap=a=>((a%360)+540)%360-180;
   const L=k=>UI[k][LI()], LA=k=>UI[k][0];
   const num=n=>CFG.lang==='ar'?AR(n):String(n);
@@ -3040,7 +3040,7 @@ const LN=(()=>{
     if(Math.hypot(x,y)<.35){x=-sA*cB;y=cA*cB}             // phone lying flat: use its top edge
     return (Math.atan2(x,y)/r+360)%360;
   }
-  function onOri(e){const h=headingFrom(e);if(h==null||!st)return;sensor=true;
+  function onOri(e){const isAbs=e.type==='deviceorientationabsolute'||e.absolute===true;if(isAbs)absEv=true;else if(absEv&&typeof e.webkitCompassHeading!=='number')return;const h=headingFrom(e);if(h==null||!st)return;sensor=true;
     st.beta=e.beta;
     if(st.h==null){st.h=h;st.base=h}else st.h=(st.h+wrap(h-st.h)*.25+360)%360}
   let fAcc=9.8,above=false,lastStep=0;
@@ -3058,7 +3058,7 @@ const LN=(()=>{
     const p=findDest(S.site,id);if(!p)return;
     stopSpeak();camStop();clearTimeout(VT);
     st={p,legs:legs(p),i:0,phase:'locate',from:null,gps:null,gpsErr:null,scanAt:0,foundAt:0,walked:0,h:null,base:null,ok:false,key:'',spoken:'',keyAt:0,muted:false,done:false,motion:false,demo:false,t0:performance.now(),lastT:performance.now()};
-    sensor=false;iosHead=false;
+    sensor=false;iosHead=false;absEv=false;
     const r=root();r.hidden=false;r.className='';document.body.style.overflow='hidden';
     el('lnLeft').dataset.from='';el('lnGps').innerHTML='';
     el('lnIc').innerHTML=icon(p.i);el('lnName').textContent=PNt(p);el('lnMute').textContent='🔊 '+(['الصوت','Sound','آواز','Son'][LI()]);
@@ -3109,7 +3109,7 @@ const LN=(()=>{
     }catch(e){return null}
   }
   function startGo(from){
-    st.from=from||null;st.legs=legs(st.p,st.from&&st.from.id);st.i=0;st.walked=0;st.ok=false;st.key='';st.spoken='';
+    st.from=from||null;st.legs=(st.from&&st.from.legs)||legs(st.p,st.from&&st.from.id);st.i=0;st.walked=0;st.ok=false;st.key='';st.spoken='';
     st.base=st.h;st.phase='go';el('lnGps').innerHTML='';
     el('lnLeft').dataset.from=st.from?` · ${L('from')} ${PNt(st.from)}`:'';
     if(st.from&&st.from.id===st.p.id){st.done=true;buzz([80,60,200]);say('arrived')}
@@ -3171,7 +3171,8 @@ const LN=(()=>{
     el('lnSkip').textContent=['الخطوة التالية','Next step','اگلا قدم','Étape suivante'][LI()];
     // demo mode (laptop, no compass): drag or arrow keys turn the view
     if(st.h==null){setText('hold','','<path d="M40 14h40v92H40z" fill="none" stroke="currentColor" stroke-width="9" stroke-linejoin="round"/>',0);raf=requestAnimationFrame(tick);return}
-    const diff=wrap(st.base+leg.off-st.h), ad=Math.abs(diff);
+    const tgt=leg.abs!=null?((iosHead||absEv)&&!st.demo?leg.abs:st.base+leg.abs-st.legs[0].abs):st.base+leg.off;
+    const diff=wrap(tgt-st.h), ad=Math.abs(diff);
     st.ok=st.ok?ad<32:ad<20;
     if(st.ok&&(st.demo||!st.motion)) st.walked+=dt*1.3;   // no step sensor: assume walking pace while facing the right way
     el('lnPlane').style.setProperty('--d',diff+'deg');el('lnRing').style.setProperty('--d',diff+'deg');
@@ -3180,7 +3181,7 @@ const LN=(()=>{
     let k;
     if(st.ok)k=leg.k==='walk'&&st.i>0&&st.legs[st.i-1].k!=='walk'?'keep':'walk';
     else k=ad>145?'uturn':diff>0?'tright':'tleft';
-    const sub=st.ok?`${num(leftM)} ${Ut('m')}`:'';
+    const sub=(st.ok?`${num(leftM)} ${Ut('m')}`:'')+(leg.to?`${st.ok?' · ':''}${['حتى','to','تک','jusqu’à'][LI()]} ${PNt(leg.to)}`:'');
     setText(k,sub,ARR,st.ok?0:diff);edge(st.ok?0:diff);
     el('lnNote').innerHTML=st.demo?`<span>${['وضع العرض: اسحب يمينًا ويسارًا لتدوير الاتجاه','Demo: drag left or right to turn','ڈیمو: مڑنے کے لیے دائیں بائیں کھینچیں','Démo : glissez à gauche ou à droite pour tourner'][LI()]}</span>`:(st.beta!=null&&Math.abs(st.beta)<35?`<span>${L('hold')}</span>`:'');
     // speak once the instruction has been steady for a moment
@@ -3263,6 +3264,209 @@ function lmAct(a,b,v){
   if(a==='lmgo'){LN.open(S.gp,v==='skip'?null:lmFrom());return true}
   return false;
 }
+</script>
+<style>
+/* ---------- Prophet's Mosque map: where am I, route, distance and time ---------- */
+.mpwrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.mpmap{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#fff;aspect-ratio:970/820;max-width:100%}
+.mpmap svg{display:block;width:100%;height:100%;cursor:crosshair;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.mpnorth{position:absolute;bottom:8px;left:8px;background:rgba(255,255,255,.92);color:#1B2B4B;border:1px solid #d9dde6;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;pointer-events:none}
+.mphint{position:absolute;left:10px;right:10px;bottom:40px;background:rgba(27,43,75,.9);color:#fff;border-radius:12px;padding:8px 12px;font-size:14px;text-align:center;pointer-events:none;text-wrap:balance}
+.mpfull{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.92);color:#1B2B4B;border:1px solid #d9dde6;border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--f-body)}
+.mpstat{display:flex;flex-direction:column;gap:4px;padding:12px 16px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+.mpstat .top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.mpstat .min{font-family:var(--f-display);font-size:30px;font-weight:700;color:var(--yes);line-height:1.1}
+.mpstat .dist{font-size:18px;color:var(--ink)}
+.mpstat .sub{font-size:14px;color:var(--muted)}
+.mpstat .sub em{font-style:normal;color:var(--orange)}
+.mpyou{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:16px;color:var(--ink)}
+.mpyou .dot{width:14px;height:14px;border-radius:50%;background:#1a73e8;box-shadow:0 0 0 5px rgba(26,115,232,.2);flex:none}
+.mpyou b{color:var(--head)}
+.mpyou button{margin-inline-start:auto;background:none;border:1px solid var(--line);border-radius:999px;padding:6px 14px;color:var(--ink);font-family:var(--f-body);font-size:14px;cursor:pointer;min-height:38px}
+.mpwhere{display:flex;flex-direction:column;gap:10px;align-items:center}
+.mpq{font-family:var(--f-display);font-size:21px;font-weight:700;color:var(--head);text-align:center;text-wrap:balance}
+.mpq em{display:block;font-style:normal;font-size:14.5px;font-weight:500;color:var(--muted)}
+.mpmatch{font-size:15px;color:var(--muted);min-height:22px;text-align:center}
+.mpmatch.ok{color:var(--yes);font-weight:600}
+.mpalt{display:flex;flex-direction:column;align-items:center;gap:6px;width:min(100%,340px)}
+.mpalt .btn{width:100%;justify-content:center}
+.mpalt span{font-size:14px;color:var(--muted)}
+</style>
+<script>
+/* Map of the Prophet's Mosque (north is at the bottom of the image).
+   Coordinates are pixels on the 1280×960 map. Walls block walking except at doors. */
+const HMAP=(()=>{
+  const SC=0.66;                 // metres per map pixel (calibrated from the building's ~98,500 m² footprint)
+  const SPEED=70;                // walking metres per minute in a crowd
+  const C=5,W=256,H=192;         // routing grid: 5-pixel cells
+  const G0={x:605,y:310,lat:24.46719,lon:39.61137};   // the Prophetic Chamber, for GPS
+  const FULL=[170,70,970,820];
+  const WALLS=[[372,369,372,748],[940,369,940,748],[372,748,940,748],[372,369,575,369],[745,369,940,369],[575,272,575,369],[745,272,745,369],[575,272,745,272]];
+  const BLOCK=[[465,195,560,320],[588,288,626,334]];   // service area east of the old mosque; the Prophetic Chamber
+  // [number, x, y, inward side, Arabic name, English name, gate id]
+  const DOORS=[[36,410,369,'T'],[35,372,404,'L'],[34,372,440,'L','باب الملك عبدالعزيز','King Abdulaziz Gate'],[33,372,474,'L'],
+   [32,372,515,'L','باب الإمام مسلم','Imam Muslim Gate'],[31,372,558,'L','باب أبي ذر الغفاري','Abu Dhar Gate'],[30,372,583,'L'],
+   [29,372,624,'L','باب علي بن أبي طالب','Ali ibn Abi Talib Gate'],[28,372,655,'L'],[0,372,705,'L','باب مصلى النساء الشرقي','East women’s gate'],
+   [0,575,292,'L','باب البقيع',"Al-Baqi' Gate",'g_baqi'],[0,575,338,'L','باب جبريل','Jibril Gate','g_jibril'],
+   [0,745,300,'R','باب السلام','Al-Salam Gate','g_salam'],[0,745,324,'R','باب أبي بكر الصديق','Abu Bakr Gate'],[0,745,352,'R','باب الرحمة','Al-Rahma Gate'],
+   [5,824,369,'T'],[6,902,369,'T'],[8,940,436,'R','باب الملك سعود','King Saud Gate'],[9,940,474,'R'],[10,940,505,'R','باب الإمام البخاري','Imam Bukhari Gate'],
+   [11,940,555,'R','باب العقيق','Al-Aqiq Gate'],[12,940,586,'R'],[13,940,615,'R','باب السلطان عبدالمجيد','Sultan Abdulmajid Gate'],[14,940,655,'R'],
+   [0,940,705,'R','باب مصلى النساء الغربي','West women’s gate'],[21,640,748,'B','باب الملك فهد','King Fahd Gate','g_fahd'],
+   [0,432,748,'B'],[0,573,748,'B'],[0,713,748,'B'],[0,855,748,'B']];
+  const TOI={201:[432,211],202:[433,115],203:[573,211],204:[573,115],205:[714,211],206:[714,115],207:[855,212],208:[855,115],209:[996,212],210:[996,115],
+   211:[996,269],212:[1092,269],213:[996,408],214:[1092,408],215:[996,550],216:[1092,550],217:[996,690],218:[1092,690],219:[1092,745],220:[1092,840],
+   221:[996,745],222:[996,840],224:[855,840],226:[714,840],228:[573,840],230:[432,840],231:[291,745],232:[222,745],233:[291,583],234:[222,583],235:[291,480],236:[222,480]};
+  const PG={301:[711,81],302:[727,81],303:[743,81],304:[791,81],305:[842,81],306:[899,81],307:[951,81],308:[1012,81],309:[1079,81],310:[1126,114],311:[1126,130],
+   312:[1126,207],313:[1126,224],314:[1126,272],315:[1126,293],316:[1126,312],317:[1126,370],318:[1126,423],319:[1126,465],320:[1126,533],321:[1126,577],
+   322:[1126,627],323:[1126,672],324:[1126,738],325:[1126,782],326:[1126,832],327:[1126,848],328:[1047,877],329:[975,877],330:[835,877],331:[764,877],
+   332:[681,840],333:[660,840],334:[642,840],335:[625,840],336:[607,840],337:[540,877],338:[466,877],339:[362,877],340:[306,877],341:[290,877],342:[247,877],
+   343:[230,877],344:[179,807],345:[179,791],346:[179,672],347:[179,657],348:[179,508],349:[179,492],350:[179,461],351:[179,445],352:[215,415],353:[232,415],
+   354:[252,415],355:[308,403],356:[318,387],357:[329,372],358:[340,357],359:[357,288],360:[357,270],361:[357,236],362:[357,220],363:[357,168],364:[357,151],
+   365:[375,81],366:[436,81],367:[501,81],368:[543,81],369:[612,81],370:[656,81],401:[1132,407]};
+  const INW={L:[1,0],R:[-1,0],T:[0,1],B:[0,-1]};
+  const ar=n=>AR(n);
+  const doorLm=d=>{const [n,x,y,,a,e]=d;const ta=a?(n?`${a} (${ar(n)})`:a):(n?`باب ${ar(n)}`:'باب'),te=e?(n?`${e} (${n})`:e):(n?`Gate ${n}`:'Gate');return {x,y,t:ta,e:te,u:te,f:te,kind:'door'}};
+  const toiLm=n=>({x:TOI[n][0],y:TOI[n][1],t:`دورة مياه ${ar(n)}`,e:`Toilet ${n}`,u:`بیت الخلاء ${n}`,f:`Toilettes ${n}`,kind:'wc'});
+  const pgLm=n=>({x:PG[n][0],y:PG[n][1],t:`بوابة الساحة ${ar(n)}`,e:`Plaza gate ${n}`,u:`Plaza gate ${n}`,f:`Porte de l’esplanade ${n}`,kind:'pg'});
+  function lookup(n){n=+n;if(!n)return null;if(TOI[n])return toiLm(n);if(PG[n])return pgLm(n);const d=DOORS.find(x=>x[0]===n);return d?doorLm(d):null}
+  const inner=(d,k)=>({x:d[1]+INW[d[3]][0]*k,y:d[2]+INW[d[3]][1]*k});
+  // ---- walkable grid ----
+  const segD=(px,py,[x1,y1,x2,y2])=>{const dx=x2-x1,dy=y2-y1,t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/(dx*dx+dy*dy||1)));return Math.hypot(px-x1-t*dx,py-y1-t*dy)};
+  const walk=new Uint8Array(W*H);
+  for(let j=0;j<H;j++)for(let i=0;i<W;i++){const x=i*C+2.5,y=j*C+2.5;
+    let ok=(x>=362&&x<=1130&&y>=76&&y<=882)||(x>=172&&x<=372&&y>=400&&y<=882);
+    if(ok&&BLOCK.some(b=>x>=b[0]&&x<=b[2]&&y>=b[1]&&y<=b[3]))ok=false;
+    if(ok&&WALLS.some(w=>segD(x,y,w)<4.6)&&!DOORS.some(d=>Math.hypot(x-d[1],y-d[2])<10))ok=false;
+    walk[j*W+i]=ok?1:0}
+  function snap(x,y){const i0=Math.round((x-2.5)/C),j0=Math.round((y-2.5)/C);let best=-1,bd=1e9;
+    for(let r=0;r<14&&best<0;r++)for(let j=j0-r;j<=j0+r;j++)for(let i=i0-r;i<=i0+r;i++){if(i<0||j<0||i>=W||j>=H||!walk[j*W+i])continue;const d=Math.hypot(i*C+2.5-x,j*C+2.5-y);if(d<bd){bd=d;best=j*W+i}}
+    return best}
+  // Dijkstra over the whole grid from one start cell (fast enough: ~50k cells)
+  const cache=new Map();
+  function solve(s){if(cache.has(s))return cache.get(s);
+    const dist=new Float64Array(W*H).fill(Infinity),prev=new Int32Array(W*H).fill(-1),hk=[],hv=[];
+    const push=(k,v)=>{hk.push(k);hv.push(v);let c=hk.length-1;while(c>0){const p=(c-1)>>1;if(hk[p]<=hk[c])break;[hk[p],hk[c]]=[hk[c],hk[p]];[hv[p],hv[c]]=[hv[c],hv[p]];c=p}};
+    const pop=()=>{const v=hv[0],lk=hk.pop(),lv=hv.pop();if(hk.length){hk[0]=lk;hv[0]=lv;let c=0;for(;;){const l=2*c+1,r=l+1;let m=c;if(l<hk.length&&hk[l]<hk[m])m=l;if(r<hk.length&&hk[r]<hk[m])m=r;if(m===c)break;[hk[m],hk[c]]=[hk[c],hk[m]];[hv[m],hv[c]]=[hv[c],hv[m]];c=m}}return v};
+    dist[s]=0;push(0,s);const N=[[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.4142],[1,-1,1.4142],[-1,1,1.4142],[-1,-1,1.4142]];
+    while(hk.length){const d0=hk[0],u=pop();if(d0>dist[u])continue;const ui=u%W,uj=(u/W)|0;
+      for(const [di,dj,c] of N){const i=ui+di,j=uj+dj;if(i<0||j<0||i>=W||j>=H)continue;const v=j*W+i;if(!walk[v])continue;
+        if(di&&dj&&(!walk[uj*W+i]||!walk[j*W+ui]))continue;   // no corner cutting through walls
+        const nd=d0+c;if(nd<dist[v]){dist[v]=nd;prev[v]=u;push(nd,v)}}}
+    const r={dist,prev};if(cache.size>6)cache.clear();cache.set(s,r);return r}
+  // ---- destinations on the map ----
+  const ESC=[[395,392],[918,392],[395,728],[918,728]].map(([x,y])=>({x,y}));
+  function targets(p){const D=k=>DOORS.filter(d=>d[6]===k).map(d=>({x:d[1],y:d[2]}));
+    switch(p.id){
+      case 'rawdah':return {pts:[{x:655,y:330}]};
+      case 'wc':case 'wudu':return {pts:Object.keys(TOI).map(n=>({x:TOI[n][0],y:TOI[n][1],lm:toiLm(n)}))};
+      case 'women':return {pts:[{x:400,y:712,lm:doorLm(DOORS[9])},{x:912,y:712,lm:doorLm(DOORS[24])}]};
+      case 'exit':return {pts:Object.keys(PG).map(n=>({x:PG[n][0],y:PG[n][1],lm:pgLm(n)}))};
+      case 'zamzam':return {pts:DOORS.map(d=>inner(d,14)),approx:true};
+      case 'info':return {pts:DOORS.filter(d=>d[4]).map(d=>({...inner(d,-12),lm:doorLm(d)})),approx:true};
+      case 'lift':return {pts:ESC,approx:true};
+      case 'clinic':return {pts:[{x:655,y:778}],approx:true};
+      case 'lost':return {pts:[{x:700,y:778}],approx:true};
+      case 'lostkid':return {pts:[{x:610,y:778}],approx:true};
+      case 'wheel':return {pts:[{x:996,y:800},{x:300,y:800}],approx:true};
+      case 'bus':return {pts:[328,329,330,331,337,338,339].map(n=>({x:PG[n][0],y:PG[n][1]})),approx:true};
+      default:{const g=D(p.id);return g.length?{pts:g}:{pts:DOORS.filter(d=>d[4]).map(d=>({x:d[1],y:d[2]})),approx:true}}
+    }}
+  // ---- route: path, length, legs for the camera ----
+  const wrapA=a=>((a%360)+540)%360-180;
+  const bearing=(a,b)=>(Math.atan2(-(b.x-a.x),b.y-a.y)*180/Math.PI+360)%360;   // map: right = west, down = north
+  function rdp(pts,eps){if(pts.length<3)return pts;let md=0,mi=0;const s=[pts[0].x,pts[0].y,pts.at(-1).x,pts.at(-1).y];
+    for(let k=1;k<pts.length-1;k++){const d=segD(pts[k].x,pts[k].y,s);if(d>md){md=d;mi=k}}
+    return md>eps?[...rdp(pts.slice(0,mi+1),eps).slice(0,-1),...rdp(pts.slice(mi),eps)]:[pts[0],pts.at(-1)]}
+  function nearLm(pt,r){let b=null,bd=r;DOORS.forEach(d=>{const x=Math.hypot(pt.x-d[1],pt.y-d[2]);if(x<bd){bd=x;b=doorLm(d)}});
+    if(!b)Object.keys(TOI).forEach(n=>{const x=Math.hypot(pt.x-TOI[n][0],pt.y-TOI[n][1]);if(x<bd+4){bd=x;b=toiLm(n)}});return b}
+  const rcache=new Map();
+  function route(p,from){const key=p.id+'@'+Math.round(from.x)+','+Math.round(from.y);if(rcache.has(key))return rcache.get(key);
+    const s=snap(from.x,from.y);if(s<0)return null;const sol=solve(s),T=targets(p);let best=null,bd=Infinity;
+    T.pts.forEach(t=>{const c=snap(t.x,t.y);if(c>=0&&sol.dist[c]<bd){bd=sol.dist[c];best={c,t}}});
+    if(!best)return null;
+    const cells=[];for(let c=best.c;c>=0;c=sol.prev[c])cells.push({x:(c%W)*C+2.5,y:((c/W)|0)*C+2.5});cells.reverse();
+    const pts=rdp([{x:from.x,y:from.y},...cells,{x:best.t.x,y:best.t.y}],3.2);
+    let px=0;for(let k=1;k<pts.length;k++)px+=Math.hypot(pts[k].x-pts[k-1].x,pts[k].y-pts[k-1].y);
+    const m=Math.max(1,Math.round(px*SC));
+    // straight stretches; tiny wiggles merged so the camera only asks for real turns
+    let segs=[];for(let k=1;k<pts.length;k++){const a=pts[k-1],b=pts[k],len=Math.hypot(b.x-a.x,b.y-a.y);if(len<.5)continue;const br=bearing(a,b),cur=segs.at(-1);
+      if(cur&&Math.abs(wrapA(br-bearing(cur.a,b)))<24&&Math.abs(wrapA(cur.b-br))<30){cur.len+=len;cur.e=b;cur.b=bearing(cur.a,b)}else segs.push({a,e:b,len,b:br})}
+    segs=segs.reduce((o,sg)=>{if(o.length&&sg.len*SC<4){o.at(-1).len+=sg.len;o.at(-1).e=sg.e}else o.push(sg);return o},[]);
+    const legs=segs.map((sg,i)=>({k:i?(wrapA(sg.b-segs[i-1].b)>0?'tright':'tleft'):'walk',abs:sg.b,off:0,m:Math.max(1,Math.round(sg.len*SC)),to:nearLm(sg.e,13)}));
+    legs.push({k:'arrived',m:0});
+    let via=null;for(const c of cells){const d=DOORS.find(d=>Math.hypot(c.x-d[1],c.y-d[2])<8);if(d){via=doorLm(d);break}}
+    const r={pts,m,min:Math.max(1,Math.round(m/SPEED)),legs,via,approx:!!T.approx,lm:best.t.lm||null,end:best.t};
+    if(rcache.size>40)rcache.clear();rcache.set(key,r);return r}
+  // ---- GPS (works without internet) ----
+  const toPx=(lat,lon)=>({x:G0.x-(lon-G0.lon)*101320/SC,y:G0.y+(lat-G0.lat)*110700/SC});
+  // ---- screen ----
+  const T4=a=>a[LI()]||a[1]||a[0];
+  const nm=n=>CFG.lang==='ar'?AR(n):String(n);
+  function view(R){if(!R||S.mpFull)return FULL;
+    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;R.pts.forEach(p=>{x0=Math.min(x0,p.x);y0=Math.min(y0,p.y);x1=Math.max(x1,p.x);y1=Math.max(y1,p.y)});
+    x0-=60;y0-=60;x1+=60;y1+=60;let w=Math.max(300,x1-x0),h=Math.max(254,y1-y0);const asp=970/820;
+    if(w/h>asp)h=w/asp;else w=h*asp;w=Math.min(w,FULL[2]);h=Math.min(h,FULL[3]);
+    let cx=(x0+x1)/2-w/2,cy=(y0+y1)/2-h/2;cx=Math.max(FULL[0],Math.min(FULL[0]+FULL[2]-w,cx));cy=Math.max(FULL[1],Math.min(FULL[1]+FULL[3]-h,cy));
+    return [cx,cy,w,h]}
+  function mapSvg(from,R,edit){const vb=view(R),r=vb[2]/52;
+    const line=R?R.pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' '):'';
+    return `<div class="mpmap"><svg id="mpsvg" viewBox="${vb.map(v=>v.toFixed(1)).join(' ')}" role="img" aria-label="${T4(['خريطة المسجد النبوي','Map of the Prophet’s Mosque'])}">
+      <image href="map.webp" x="0" y="0" width="1280" height="960"/>
+      ${R?`<polyline points="${line}" fill="none" stroke="#fff" stroke-width="10" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+      <polyline points="${line}" fill="none" stroke="#1a73e8" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+      <circle cx="${R.end.x}" cy="${R.end.y}" r="${r*1.15}" style="fill:var(--orange)" stroke="#fff" stroke-width="${r*.35}"/>`:''}
+      ${from?`<circle cx="${from.x}" cy="${from.y}" r="${r*2.4}" fill="rgba(26,115,232,.18)"/><circle cx="${from.x}" cy="${from.y}" r="${r}" fill="#1a73e8" stroke="#fff" stroke-width="${r*.38}"/>`:''}
+      </svg><span class="mpnorth">${T4(['الشمال ↓','North ↓','شمال ↓','Nord ↓'])}</span>
+      ${R?`<button class="mpfull" data-act="mpfull">${S.mpFull?T4(['تكبير على الطريق','Zoom to route','راستہ دکھائیں','Zoom sur l’itinéraire']):T4(['الخريطة كاملة','Whole map','پورا نقشہ','Carte entière'])}</button>`:''}
+      ${edit?`<span class="mphint">${T4(['اضغط على مكانك في الخريطة','Tap where you are on the map','نقشے پر اپنی جگہ دبائیں','Touchez votre position sur la carte'])}</span>`:''}</div>`}
+  function screen(p){
+    const i=LI(),from=S.mpFrom,edit=!from||S.mpEdit,R=from?route(p,from):null;
+    const cam='<svg class="bic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+    let stat='';
+    if(R){const at=new Date(Date.now()+R.min*60000).toLocaleTimeString(CFG.lang==='ar'?'ar-SA':CFG.lang,{hour:'numeric',minute:'2-digit'});
+      stat=`<div class="mpstat" aria-live="polite"><div class="top"><span class="min">${nm(R.min)} ${T4(['دقيقة','min','منٹ','min'])}</span><span class="dist">(${nm(R.m)} ${Ut('m')})</span></div>
+        <div class="sub">${T4(['الوصول','Arrive','پہنچیں','Arrivée'])} ${at}${R.via&&R.via.t!==from.t?` · ${T4(['عبر','via','بذریعہ','via'])} ${PNt(R.via)}`:''}${R.lm?` · ${PNt(R.lm)}`:''}${R.approx?` · <em>${T4(['موقع الوجهة تقريبي','Destination spot is approximate','منزل کا مقام تخمینی ہے','Emplacement approximatif'])}</em>`:''}</div></div>`}
+    else if(from)stat=`<div class="mpstat"><div class="sub">${T4(['ما قدرت أحسب الطريق من هنا، جرّب معلمًا آخر','No route from here. Try another landmark','یہاں سے راستہ نہیں ملا','Pas d’itinéraire depuis ici'])}</div></div>`;
+    const num=S.mpNum||'',hit=num&&lookup(num);
+    const where=edit?`<div class="mpwhere"><div class="mpq">${T4(['أين أنت الآن؟','Where are you now?','آپ اس وقت کہاں ہیں؟','Où êtes-vous ?'])}${i?`<em>أين أنت الآن؟</em>`:''}<em>${T4(['اكتب رقم أقرب دورة مياه أو باب أو بوابة ساحة','Type the number of the nearest toilet, door or plaza gate','قریب ترین بیت الخلاء یا دروازے کا نمبر لکھیں','Tapez le numéro des toilettes, de la porte ou de l’entrée la plus proche'])}</em></div>
+      <div class="lmdisp"><b class="${hit?'on':''}" aria-live="polite">${num?nm(num):'—'}</b></div>
+      <div class="mpmatch ${hit?'ok':''}">${hit?'✓ '+PNt(hit):num?T4(['لا يوجد معلم بهذا الرقم بعد','No landmark with this number yet','اس نمبر کا کوئی نشان نہیں','Aucun repère avec ce numéro']):T4(['مثال: ٢٢١ دورة مياه، ٣١ باب، ٣٢٠ بوابة ساحة','e.g. 221 toilet, 31 door, 320 plaza gate','مثال: 221، 31، 320','ex. 221, 31, 320'])}</div>
+      <div class="lmpad">${[1,2,3,4,5,6,7,8,9].map(d=>`<button data-act="mpkey" data-v="${d}">${nm(d)}</button>`).join('')}<button class="del" data-act="mpkey" data-v="del" aria-label="مسح">⌫</button><button data-act="mpkey" data-v="0">${nm(0)}</button><button class="del" data-act="mpkey" data-v="clr" aria-label="مسح الكل">C</button></div>
+      <div class="mpalt"><button class="btn ghost big" data-act="mpgps">📡 ${T4(['حدّد موقعي تلقائيًا (GPS)','Find me automatically (GPS)','خودکار مقام (GPS)','Me localiser (GPS)'])}</button><span>${T4(['يعمل بدون إنترنت في الساحات المكشوفة','Works without internet in the open plazas','کھلے صحن میں انٹرنیٹ کے بغیر کام کرتا ہے','Fonctionne sans internet sur les esplanades'])}</span></div></div>`
+      :`<div class="mpyou"><span class="dot"></span><span>${T4(['أنت عند','You are at','آپ یہاں ہیں','Vous êtes à'])}: <b>${PNt(from)}</b></span><button data-act="mpedit">${T4(['تغيير','Change','تبدیل','Changer'])}</button></div>`;
+    const w=`<div class="mpwrap">${mapSvg(from,R,edit)}${edit?where+stat:stat+where}
+      <div class="lmgo"><button class="btn accent big lmcam" data-act="mpgo" ${R?'':'disabled'}>${cam}${Ut('camgo')}</button>
+      <div class="lmlinks"><button data-act="greset">${Ut('back')}</button></div></div>
+      <p class="lmdemo">${T4(['المسافة والوقت محسوبان من خريطة المسجد النبوي على طريق المشي الفعلي عبر الأبواب، بدقة تقريبية ±١٠٪.','Distance and time come from the mosque map along the real walking path through the doors (about ±10%).','فاصلہ اور وقت نقشے سے لیے گئے ہیں (±10%)','Distance et durée calculées sur le plan (±10 %)'])}</p></div>`;
+    return {ask:`${Ut('to')}: ${PN(p)}`,h:'للزائر · خريطة المسجد النبوي: حدّد مكانك وشوف المسافة والوقت',w}}
+  function setFrom(f){S.mpFrom=f;S.mpEdit=false;S.mpNum='';S.mpFull=false;render()}
+  function act(a,b,v){
+    if(a==='mpkey'){let n=S.mpNum||'';if(v==='del')n=n.slice(0,-1);else if(v==='clr')n='';else if(n.length<3)n=(n+v).replace(/^0+/,'');
+      S.mpNum=n;const hit=n&&lookup(n);S.mpFrom=hit?{...hit,id:'mp'}:null;S.mpEdit=!(hit&&n.length>=3);S.mpFull=false;render();return true}
+    if(a==='mpedit'){S.mpEdit=true;S.mpNum='';render();return true}
+    if(a==='mpfull'){S.mpFull=!S.mpFull;render();return true}
+    if(a==='mpgps'){
+      if(!navigator.geolocation){toast(T4(['الجوال لا يدعم تحديد الموقع','Location is not supported','مقام دستیاب نہیں','Localisation indisponible']));return true}
+      toast(T4(['جارٍ تحديد موقعك…','Finding you…','آپ کا مقام معلوم ہو رہا ہے…','Localisation…']));
+      navigator.geolocation.getCurrentPosition(pos=>{const c=pos.coords,q=toPx(c.latitude,c.longitude),acc=Math.round(c.accuracy);
+        const off=Math.hypot(Math.max(0,FULL[0]-q.x,q.x-FULL[0]-FULL[2]),Math.max(0,FULL[1]-q.y,q.y-FULL[1]-FULL[3]))*SC;
+        if(off>60){toast(T4([`يبدو أنك خارج المسجد النبوي (على بعد ${AR(Math.round(off))} م). اكتب رقم أقرب معلم بدلًا من ذلك`,`You seem to be outside the mosque (${Math.round(off)} m away). Type the nearest landmark instead`,'آپ مسجد سے باہر ہیں','Vous semblez hors de la mosquée']));return}
+        setFrom({x:Math.max(175,Math.min(1135,q.x)),y:Math.max(75,Math.min(885,q.y)),id:'mp',t:`موقعك بالـGPS (±${AR(acc)} م)`,e:`Your GPS spot (±${acc} m)`,u:`GPS (±${acc} m)`,f:`Position GPS (±${acc} m)`})},
+        err=>toast(err.code===1?T4(['الموقع غير مسموح. فعّله من إعدادات الجوال أو اكتب رقم أقرب معلم','Location is blocked. Allow it in settings or type the nearest landmark','مقام کی اجازت نہیں','Localisation refusée']):T4(['ما قدرت أحدد موقعك هنا، اكتب رقم أقرب معلم','Could not find you here. Type the nearest landmark','مقام نہیں ملا','Position introuvable'])),
+        {enableHighAccuracy:true,timeout:20000,maximumAge:10000});return true}
+    if(a==='mpgo'){const p=findDest(S.site,S.gp),from=S.mpFrom,R=p&&from&&route(p,from);if(!R)return true;LN.open(S.gp,{...from,id:'mp',legs:R.legs});return true}
+    return false}
+  // tap on the map = "I am here"
+  document.addEventListener('click',e=>{const sv=e.target.closest&&e.target.closest('#mpsvg');if(!sv||!sv.getScreenCTM())return;
+    const pt=sv.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const q=pt.matrixTransform(sv.getScreenCTM().inverse());
+    if(snap(q.x,q.y)<0){toast(T4(['هذا المكان خارج المسجد، اضغط داخل الساحات أو المبنى','That spot is outside the mosque','یہ جگہ مسجد سے باہر ہے','Hors de la mosquée']));return}
+    const lm=nearLm(q,9);
+    setFrom(lm?{...lm,x:q.x,y:q.y,id:'mp'}:{x:q.x,y:q.y,id:'mp',t:'النقطة التي حددتها على الخريطة',e:'The spot you marked',u:'آپ کی منتخب جگہ',f:'Le point choisi'})});
+  return {screen,act,route,lookup,snap};
+})();
+/* Madinah uses the real map; Makkah keeps the landmark screen. */
+lmScreen=(old=>p=>S.site==='mad'?HMAP.screen(p):old(p))(lmScreen);
+lmAct=(old=>(a,b,v)=>HMAP.act(a,b,v)||old(a,b,v))(lmAct);
 </script>
 
 </body>
